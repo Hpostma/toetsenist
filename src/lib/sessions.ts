@@ -1,5 +1,5 @@
 import { createClient } from '@/utils/supabase/server'
-import { Concept, AssessmentMetadata } from './gemini'
+import { Concept, AssessmentMetadata } from './anthropic'
 
 // Server-side sessie type (komt overeen met DB, maar met geparste JSON)
 export interface ServerSession {

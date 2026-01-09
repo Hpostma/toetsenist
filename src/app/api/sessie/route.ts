@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { startConversation } from '@/lib/gemini'
+import { startConversation } from '@/lib/anthropic'
 import { createSession, addMessage, getServerSession } from '@/lib/sessions'
 import { createClient } from '@/utils/supabase/server'
 
@@ -15,9 +15,9 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        if (!process.env.GEMINI_API_KEY) {
+        if (!process.env.ANTHROPIC_API_KEY) {
             return NextResponse.json(
-                { error: 'GEMINI_API_KEY niet geconfigureerd' },
+                { error: 'ANTHROPIC_API_KEY niet geconfigureerd' },
                 { status: 500 }
             )
         }

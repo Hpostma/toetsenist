@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { chat, AssessmentMetadata } from '@/lib/gemini'
+import { chat, AssessmentMetadata } from '@/lib/anthropic'
 import { getServerSession, addMessage, updateSessionMetadata } from '@/lib/sessions'
 
 export async function POST(
@@ -7,9 +7,9 @@ export async function POST(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        if (!process.env.GEMINI_API_KEY) {
+        if (!process.env.ANTHROPIC_API_KEY) {
             return NextResponse.json(
-                { error: 'GEMINI_API_KEY niet geconfigureerd' },
+                { error: 'ANTHROPIC_API_KEY niet geconfigureerd' },
                 { status: 500 }
             )
         }
