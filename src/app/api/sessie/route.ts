@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
         // 3. Sla berichten op in DB
         // Anthropic vereist dat we met user beginnen in de historie, dus die voegen we ook toe aan DB
         await addMessage(sessionId, 'user', 'Start het toetsgesprek met een welkomstbericht en de eerste vraag op niveau 2.')
-        await addMessage(sessionId, 'assistant', response)
+        await addMessage(sessionId, 'assistant', response, metadata)
 
         return NextResponse.json({
             success: true,

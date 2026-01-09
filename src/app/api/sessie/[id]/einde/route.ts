@@ -24,14 +24,13 @@ export async function POST(
         // Bereken statistieken
         const duration = Math.round((endedAt - session.startedAt) / 60000)
 
-        // Bereken niveau-verloop
-        // Let op: Omdat we metadata strippen voor opslag, kunnen we historische levels niet meer uit content parsen.
-        // We gebruiken voor nu een versimpelde weergave op basis van het huidige niveau.
-        // TODO: Metadata kolom toevoegen aan messages tabel voor nauwkeurige historie.
+        // Bereken niveau-verloop op basis van opgeslagen metadata
         const levelProgression = session.messages
             .filter(m => m.role === 'assistant')
             .map((m, index) => {
-                return { messageIndex: index, level: session.currentLevel } // Fallback naar eindniveau
+                // Gebruik metadata.questionLevel als beschikbaar, anders fallback naar eindniveau
+                const level = m.metadata?.questionLevel ?? session.currentLevel
+                return { messageIndex: index, level }
             })
 
         // Bereken stabiel niveau (berekend o.b.v. eindstatus)

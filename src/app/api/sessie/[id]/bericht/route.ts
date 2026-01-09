@@ -63,8 +63,8 @@ export async function POST(
             session.engagementStatus
         )
 
-        // Sla AI message op in DB
-        await addMessage(sessionId, 'assistant', response)
+        // Sla AI message op in DB met metadata voor nauwkeurige rapportage
+        await addMessage(sessionId, 'assistant', response, metadata)
 
         // Update sessie metadata in DB als nodig
         let newLevel = session.currentLevel

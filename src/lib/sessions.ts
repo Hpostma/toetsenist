@@ -1,13 +1,20 @@
 import { createClient } from '@/utils/supabase/server'
 import { Concept, AssessmentMetadata } from './anthropic'
 
+// Server-side message type met optionele metadata
+export interface ServerMessage {
+    role: 'user' | 'assistant'
+    content: string
+    metadata?: AssessmentMetadata | null
+}
+
 // Server-side sessie type (komt overeen met DB, maar met geparste JSON)
 export interface ServerSession {
     id: string
     documentId?: string
     documentTitle?: string
     concepts: Concept[]
-    messages: Array<{ role: 'user' | 'assistant'; content: string }>
+    messages: ServerMessage[]
     currentLevel: number
     engagementStatus: string
     status: 'active' | 'completed' | 'abandoned'
@@ -51,7 +58,8 @@ export async function getServerSession(id: string): Promise<ServerSession | null
         concepts: sessionData.concepts as Concept[],
         messages: messagesData.map((m: any) => ({
             role: m.role,
-            content: m.content
+            content: m.content,
+            metadata: m.metadata as AssessmentMetadata | null
         })),
         currentLevel: sessionData.current_level,
         engagementStatus: sessionData.engagement_status || 'high',
@@ -94,7 +102,12 @@ export async function createSession(data: {
 }
 
 // Voeg bericht toe aan sessie
-export async function addMessage(sessionId: string, role: 'user' | 'assistant', content: string) {
+export async function addMessage(
+    sessionId: string,
+    role: 'user' | 'assistant',
+    content: string,
+    metadata?: AssessmentMetadata | null
+) {
     const supabase = await createClient()
 
     const { error } = await supabase
@@ -102,7 +115,8 @@ export async function addMessage(sessionId: string, role: 'user' | 'assistant', 
         .insert({
             session_id: sessionId,
             role,
-            content
+            content,
+            metadata: metadata ?? null
         })
 
     if (error) {
@@ -204,7 +218,9 @@ export function convertSessionToReport(session: ServerSession) {
     const levelProgression = session.messages
         .filter(m => m.role === 'assistant')
         .map((m, index) => {
-            return { messageIndex: index, level: session.currentLevel }
+            // Gebruik metadata.questionLevel als beschikbaar, anders fallback naar eindniveau
+            const level = m.metadata?.questionLevel ?? session.currentLevel
+            return { messageIndex: index, level }
         })
 
     return {

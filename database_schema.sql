@@ -23,9 +23,10 @@ create table messages (
   id uuid primary key default gen_random_uuid(),
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   session_id uuid references sessions(id) on delete cascade not null,
-  
+
   role text not null, -- 'user' of 'assistant'
-  content text not null
+  content text not null,
+  metadata jsonb default null -- Assessment metadata (niveau, concepten, etc.) voor nauwkeurige rapportage
 );
 
 -- Index voor sneller ophalen van berichten per sessie
