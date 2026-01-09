@@ -8,13 +8,13 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        'han-red': '#E50056',
-        'han-black': '#141414',
-        'han-gray': '#F1F1F1',
+        'han-red': '#E50055',
+        'han-black': '#000000',
+        'han-gray': '#F3F3F3',
       },
       fontFamily: {
-        sans: ['"Avenir Next"', 'sans-serif'],
-        condensed: ['"Avenir Next Condensed"', 'sans-serif'],
+        sans: ['var(--font-open-sans)', 'sans-serif'],
+        heading: ['var(--font-jost)', 'sans-serif'],
       },
     },
   },

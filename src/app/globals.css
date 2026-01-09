@@ -7,6 +7,6 @@
     @apply font-sans text-han-black bg-white;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-condensed font-bold;
+    @apply font-heading font-bold;
   }
 } 

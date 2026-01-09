@@ -15,33 +15,34 @@ export default function FileUpload({ onFileUpload }: FileUploadProps) {
   const handleFileSelect = async (file: File) => {
     const isDocx = file.name.endsWith('.docx')
     const isPdf = file.name.endsWith('.pdf')
-    
-    if (!isDocx && !isPdf) {
-      alert('Alleen .docx en .pdf bestanden zijn toegestaan!')
+    const isTxt = file.name.endsWith('.txt')
+
+    if (!isDocx && !isPdf && !isTxt) {
+      alert('Alleen .docx, .pdf en .txt bestanden zijn toegestaan!')
       return
     }
 
     setUploadedFile(file)
     setIsProcessing(true)
     setResult(null)
-    
+
     try {
       const formData = new FormData()
       formData.append('file', file)
-      
+
       const response = await fetch('/api/upload-docx', {
         method: 'POST',
         body: formData,
       })
-      
+
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || 'Upload failed')
       }
-      
+
       const data = await response.json()
       setResult(data)
-      
+
       if (onFileUpload) {
         onFileUpload(file)
       }
@@ -58,7 +59,7 @@ export default function FileUpload({ onFileUpload }: FileUploadProps) {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
-    
+
     const files = Array.from(e.dataTransfer.files)
     if (files.length > 0) {
       handleFileSelect(files[0])
@@ -86,22 +87,21 @@ export default function FileUpload({ onFileUpload }: FileUploadProps) {
     <div className="space-y-4">
       {/* Upload Area */}
       <div
-        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-          isDragging
-            ? 'border-purple-500 bg-purple-50'
-            : 'border-gray-300 hover:border-purple-400'
-        }`}
+        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isDragging
+          ? 'border-han-red bg-red-50'
+          : 'border-gray-300 hover:border-han-red'
+          }`}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
       >
         <div className="flex flex-col items-center space-y-4">
-          <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-            <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center">
+            <svg className="w-6 h-6 text-han-red" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
           </div>
-          
+
           <div>
             <p className="text-lg font-medium text-gray-700">
               Sleep je document hier naartoe
@@ -110,24 +110,24 @@ export default function FileUpload({ onFileUpload }: FileUploadProps) {
               of klik om een bestand te selecteren
             </p>
           </div>
-          
+
           <input
             type="file"
-            accept=".docx,.pdf"
+            accept=".docx,.pdf,.txt"
             onChange={handleFileInput}
             className="hidden"
             id="file-input"
           />
-          
+
           <label
             htmlFor="file-input"
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors cursor-pointer"
+            className="px-4 py-2 bg-han-red text-white rounded-lg hover:bg-red-700 transition-colors cursor-pointer font-bold shadow-sm"
           >
             Bestand Selecteren
           </label>
-          
+
           <p className="text-xs text-gray-400">
-            Ondersteunde formaten: .docx, .pdf (max 10MB)
+            Ondersteunde formaten: .docx, .pdf, .txt (max 10MB)
           </p>
         </div>
       </div>
@@ -196,8 +196,8 @@ export default function FileUpload({ onFileUpload }: FileUploadProps) {
             </div>
           </div>
           <div className="text-sm text-gray-600 whitespace-pre-wrap max-h-40 overflow-y-auto bg-white p-3 rounded border">
-            {result.content.length > 500 
-              ? `${result.content.substring(0, 500)}...` 
+            {result.content.length > 500
+              ? `${result.content.substring(0, 500)}...`
               : result.content
             }
           </div>

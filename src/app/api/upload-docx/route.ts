@@ -5,27 +5,27 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File
-    
+
     if (!file) {
       return NextResponse.json({ error: 'Geen bestand gevonden' }, { status: 400 })
     }
 
-    // Check file type - now supports multiple formats
     const fileName = file.name.toLowerCase()
     const isDocx = fileName.endsWith('.docx')
     const isPdf = fileName.endsWith('.pdf')
     const isCsv = fileName.endsWith('.csv')
-    
-    if (!isDocx && !isPdf && !isCsv) {
-      return NextResponse.json({ error: 'Ondersteunde formaten: .docx, .pdf, .csv' }, { status: 400 })
+    const isTxt = fileName.endsWith('.txt')
+
+    if (!isDocx && !isPdf && !isCsv && !isTxt) {
+      return NextResponse.json({
+        error: 'Ondersteunde formaten: .docx, .pdf, .csv, .txt'
+      }, { status: 400 })
     }
 
-    // Check file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       return NextResponse.json({ error: 'Bestand is te groot (max 10MB)' }, { status: 400 })
     }
 
-    // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
@@ -33,55 +33,68 @@ export async function POST(request: NextRequest) {
     let fileType = ''
 
     if (isDocx) {
-      // Extract text from .docx using mammoth
       const result = await mammoth.extractRawText({ buffer })
       textContent = result.value
       fileType = 'Word Document (.docx)'
     } else if (isPdf) {
-      // Extract text from .pdf using pdf-parse with dynamic import
       try {
-        const pdfParse = (await import('pdf-parse')).default
+        // Gebruik de library direct als dat kan, anders de fallback require
+        const pdfParse = require('pdf-parse/lib/pdf-parse')
         const pdfData = await pdfParse(buffer)
         textContent = pdfData.text
         fileType = 'PDF Document (.pdf)'
-      } catch (pdfError) {
+
+        if (!textContent || textContent.trim().length === 0) {
+          throw new Error('Geen tekst gevonden in PDF. Is het een gescand document?')
+        }
+      } catch (pdfError: any) {
         console.error('PDF parsing error:', pdfError)
-        return NextResponse.json({ error: 'Fout bij het lezen van het PDF bestand' }, { status: 400 })
+
+        let errorMessage = 'De tekst uit dit PDF bestand kon niet worden gelezen.'
+        let hint = 'Probeer het document op te slaan als .docx of kopieer de tekst naar een .txt bestand.'
+
+        if (pdfError.message?.includes('password')) {
+          errorMessage = 'Dit PDF bestand is beveiligd met een wachtwoord.'
+        } else if (textContent.trim().length === 0) {
+          errorMessage = 'Dit lijkt een gescand document of een afbeelding te zijn zonder leesbare tekst.'
+        }
+
+        return NextResponse.json({ error: errorMessage, hint }, { status: 400 })
       }
+    } else if (isTxt) {
+      textContent = buffer.toString('utf-8')
+      fileType = 'Tekstbestand (.txt)'
     } else if (isCsv) {
-      // Parse CSV file
       try {
         const csvText = buffer.toString('utf-8')
         const lines = csvText.split('\n').filter(line => line.trim().length > 0)
-        
+
         if (lines.length === 0) {
           return NextResponse.json({ error: 'CSV bestand is leeg' }, { status: 400 })
         }
-        
-        // Parse CSV into readable format
+
         const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
-        const rows = lines.slice(1, Math.min(11, lines.length)) // Limit to first 10 rows for preview
-        
+        const rows = lines.slice(1, Math.min(11, lines.length))
+
         let formattedContent = `CSV Data (${lines.length - 1} rijen, ${headers.length} kolommen)\n\n`
         formattedContent += `Kolommen: ${headers.join(', ')}\n\n`
-        
-        // Add sample data
         formattedContent += 'Eerste 10 rijen:\n'
         rows.forEach((row, index) => {
           const values = row.split(',').map(v => v.trim().replace(/"/g, ''))
           formattedContent += `${index + 1}. ${values.join(' | ')}\n`
         })
-        
-        if (lines.length > 11) {
-          formattedContent += `\n... en nog ${lines.length - 11} rijen`
-        }
-        
+
         textContent = formattedContent
         fileType = 'CSV Data (.csv)'
       } catch (csvError) {
-        console.error('CSV parsing error:', csvError)
         return NextResponse.json({ error: 'Fout bij het lezen van het CSV bestand' }, { status: 400 })
       }
+    }
+
+    if (!textContent || textContent.trim().length < 10) {
+      return NextResponse.json({
+        error: 'Te weinig tekst gevonden in het bestand. Controleer of het bestand niet leeg is.'
+      }, { status: 400 })
     }
 
     return NextResponse.json({
@@ -97,7 +110,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error processing file:', error)
     return NextResponse.json(
-      { error: 'Er is een fout opgetreden bij het verwerken van het bestand' },
+      { error: 'Er is een fout opgetreden bij het verwerken van het bestand. Probeer het opnieuw.' },
       { status: 500 }
     )
   }

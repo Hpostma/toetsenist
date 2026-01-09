@@ -34,4 +34,12 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts 
+next-env.d.ts
+
+# Toetsenist specific
+test_upload.txt
+*.code-workspace
+
+# Database migrations (if they contain sensitive data)
+# auth_migration.sql
+# database_schema.sql

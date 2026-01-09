@@ -1,9 +1,22 @@
 import type { Metadata } from 'next'
+import { Open_Sans, Jost } from 'next/font/google'
 import './globals.css'
 
+const openSans = Open_Sans({
+  subsets: ['latin'],
+  variable: '--font-open-sans',
+  display: 'swap',
+})
+
+const jost = Jost({
+  subsets: ['latin'],
+  variable: '--font-jost',
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
-  title: 'Gemini Template - Tom Naberink',
-  description: 'Een template om te werken met Gemini AI - Gemaakt door Tom Naberink',
+  title: 'Adaptieve AI Toetsapplicatie - HAN',
+  description: 'AI-ondersteund toetsen in HAN huisstijl',
 }
 
 export default function RootLayout({
@@ -13,7 +26,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="nl">
-      <body className="bg-gray-100 min-h-screen" suppressHydrationWarning={true}>
+      <body className={`${openSans.variable} ${jost.variable} font-sans bg-neutral-50 min-h-screen`} suppressHydrationWarning={true}>
         {children}
       </body>
     </html>

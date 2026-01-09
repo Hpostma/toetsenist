@@ -24,8 +24,12 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
     "@google/generative-ai": "^0.21.0",
     "@netlify/plugin-nextjs": "^4.41.3",
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.89.0",
+    "date-fns": "^4.1.0",
     "docx": "^9.5.0",
     "fs": "^0.0.1-security",
     "mammoth": "^1.9.1",
