@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { analyzeDocument } from '@/lib/anthropic'
+import { analyzeDocument } from '@/lib/gemini'
 
 export async function POST(request: NextRequest) {
     try {
-        // Check API key
-        if (!process.env.ANTHROPIC_API_KEY) {
-            console.error('ANTHROPIC_API_KEY not found')
+        // Check API key (using Gemini for document analysis)
+        if (!process.env.GEMINI_API_KEY) {
+            console.error('GEMINI_API_KEY not found')
             return NextResponse.json(
                 {
-                    error: 'API configuratie ontbreekt. Voeg ANTHROPIC_API_KEY toe.',
-                    hint: 'Stel de ANTHROPIC_API_KEY environment variable in'
+                    error: 'API configuratie ontbreekt. Voeg GEMINI_API_KEY toe.',
+                    hint: 'Stel de GEMINI_API_KEY environment variable in'
                 },
                 { status: 500 }
             )
