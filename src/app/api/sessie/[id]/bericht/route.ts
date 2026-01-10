@@ -126,17 +126,13 @@ function calculateSessionUpdates(
         updates.recentAnswers = recentAnswers
     }
 
-    // Niveau logica
-    const lastThree = recentAnswers.slice(-3)
-    const incorrectCount = recentAnswers.filter(a => a === 'incorrect' || a === 'unclear').length
-
+    // Niveau logica - gebruik primair de AI suggestie
     let nextLevel = session.currentLevel
-    if (lastThree.length === 3 && lastThree.every(a => a === 'correct')) {
-        nextLevel = Math.min(5, session.currentLevel + 1)
-    } else if (incorrectCount >= 2) {
-        nextLevel = Math.max(1, session.currentLevel - 1)
-    } else if (metadata.suggestedNextLevel) {
-        nextLevel = metadata.suggestedNextLevel
+
+    if (metadata.suggestedNextLevel && metadata.suggestedNextLevel !== session.currentLevel) {
+        // Gebruik de AI suggestie direct (met bounds check)
+        nextLevel = Math.max(1, Math.min(5, metadata.suggestedNextLevel))
+        console.log(`Niveau update: ${session.currentLevel} -> ${nextLevel} (AI suggestie: ${metadata.suggestedNextLevel}, antwoord: ${metadata.answerQuality})`)
     }
 
     if (nextLevel !== session.currentLevel) {
