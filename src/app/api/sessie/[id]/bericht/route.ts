@@ -7,9 +7,10 @@ export async function POST(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        if (!process.env.ANTHROPIC_API_KEY) {
+        // Check of er minstens één AI provider is geconfigureerd
+        if (!process.env.ANTHROPIC_API_KEY && !process.env.GEMINI_API_KEY && !process.env.OPENAI_API_KEY) {
             return NextResponse.json(
-                { error: 'ANTHROPIC_API_KEY niet geconfigureerd' },
+                { error: 'Geen AI provider geconfigureerd. Stel ANTHROPIC_API_KEY, GEMINI_API_KEY of OPENAI_API_KEY in.' },
                 { status: 500 }
             )
         }
@@ -55,8 +56,8 @@ export async function POST(
             { role: 'user' as const, content }
         ]
 
-        // Stuur naar Claude
-        const { response, metadata } = await chat(
+        // Stuur naar AI (probeert Claude -> Gemini -> OpenAI)
+        const { response, metadata, modelInfo } = await chat(
             contextMessages,
             session.concepts,
             session.currentLevel,
@@ -83,6 +84,7 @@ export async function POST(
             success: true,
             message: response,
             metadata,
+            modelInfo,
             currentLevel: newLevel,
             engagementStatus: newEngagement
         })

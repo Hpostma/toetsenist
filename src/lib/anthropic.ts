@@ -1,5 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
+
+// Model info type
+export interface ModelInfo {
+  provider: 'anthropic' | 'gemini' | 'openai'
+  model: string
+  displayName: string
+}
 
 // Types
 export interface Concept {
@@ -159,6 +167,22 @@ function getOpenAIClient() {
   })
 }
 
+function getGeminiModel() {
+  if (!process.env.GEMINI_API_KEY) {
+    return null
+  }
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  return genAI.getGenerativeModel({
+    model: 'gemini-2.0-flash',
+    safetySettings: [
+      { category: 'HARM_CATEGORY_HARASSMENT' as any, threshold: 'BLOCK_NONE' as any },
+      { category: 'HARM_CATEGORY_HATE_SPEECH' as any, threshold: 'BLOCK_NONE' as any },
+      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT' as any, threshold: 'BLOCK_NONE' as any },
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT' as any, threshold: 'BLOCK_NONE' as any },
+    ]
+  })
+}
+
 // Chat via Anthropic Claude
 async function chatWithAnthropic(
   messages: Array<{ role: 'user' | 'assistant'; content: string }>,
@@ -207,6 +231,32 @@ async function chatWithOpenAI(
   return content
 }
 
+// Chat via Gemini
+async function chatWithGemini(
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  systemPrompt: string
+): Promise<string> {
+  const model = getGeminiModel()
+  if (!model) throw new Error('Gemini client niet beschikbaar')
+
+  // Bouw de chat history op als één prompt string (Gemini stateless approach)
+  let promptHistory = `SYSTEM INSTRUCTIONS:\n${systemPrompt}\n\nCHAT HISTORY:\n`
+  messages.forEach(msg => {
+    promptHistory += `${msg.role.toUpperCase()}: ${msg.content}\n\n`
+  })
+  promptHistory += `ASSISTANT:`
+
+  const result = await model.generateContent(promptHistory)
+  const response = await result.response
+  const text = response.text()
+
+  if (!text) {
+    throw new Error('Geen response van Gemini')
+  }
+
+  return text
+}
+
 // Parse metadata uit response
 function parseMetadata(fullResponse: string): { visibleResponse: string; metadata: AssessmentMetadata | null } {
   let metadata: AssessmentMetadata | null = null
@@ -253,25 +303,28 @@ function parseMetadata(fullResponse: string): { visibleResponse: string; metadat
 }
 
 // Hoofdfunctie: chat met fallback tussen providers
+// Volgorde: Claude -> Gemini -> OpenAI
 export async function chat(
   messages: Array<{ role: 'user' | 'assistant'; content: string }>,
   concepts: Concept[],
   currentLevel: number,
   engagementStatus: string = 'high'
-): Promise<{ response: string; metadata: AssessmentMetadata | null }> {
+): Promise<{ response: string; metadata: AssessmentMetadata | null; modelInfo: ModelInfo }> {
 
   const systemPrompt = generateConversationPrompt(concepts, currentLevel, engagementStatus)
   const hasAnthropic = !!process.env.ANTHROPIC_API_KEY
+  const hasGemini = !!process.env.GEMINI_API_KEY
   const hasOpenAI = !!process.env.OPENAI_API_KEY
 
-  if (!hasAnthropic && !hasOpenAI) {
-    throw new Error('Geen AI provider geconfigureerd. Stel ANTHROPIC_API_KEY of OPENAI_API_KEY in.')
+  if (!hasAnthropic && !hasGemini && !hasOpenAI) {
+    throw new Error('Geen AI provider geconfigureerd. Stel ANTHROPIC_API_KEY, GEMINI_API_KEY of OPENAI_API_KEY in.')
   }
 
   let fullResponse: string | null = null
   let lastError: Error | null = null
+  let modelInfo: ModelInfo | null = null
 
-  // Probeer eerst Anthropic met retry
+  // 1. Probeer eerst Anthropic Claude
   if (hasAnthropic) {
     try {
       console.log('Probeer chat via Anthropic Claude...')
@@ -280,6 +333,11 @@ export async function chat(
         3,
         2000
       )
+      modelInfo = {
+        provider: 'anthropic',
+        model: 'claude-3-5-sonnet-20241022',
+        displayName: 'Claude 3.5 Sonnet'
+      }
       console.log('Anthropic chat succesvol')
     } catch (error: any) {
       console.error('Anthropic chat mislukt:', error.message)
@@ -287,7 +345,28 @@ export async function chat(
     }
   }
 
-  // Fallback naar OpenAI als Anthropic faalt
+  // 2. Fallback naar Gemini
+  if (!fullResponse && hasGemini) {
+    try {
+      console.log('Fallback naar Google Gemini...')
+      fullResponse = await withRetry(
+        () => chatWithGemini(messages, systemPrompt),
+        3,
+        2000
+      )
+      modelInfo = {
+        provider: 'gemini',
+        model: 'gemini-2.0-flash',
+        displayName: 'Gemini 2.0 Flash'
+      }
+      console.log('Gemini chat succesvol')
+    } catch (error: any) {
+      console.error('Gemini chat mislukt:', error.message)
+      lastError = error
+    }
+  }
+
+  // 3. Fallback naar OpenAI
   if (!fullResponse && hasOpenAI) {
     try {
       console.log('Fallback naar OpenAI GPT-4o...')
@@ -296,6 +375,11 @@ export async function chat(
         3,
         2000
       )
+      modelInfo = {
+        provider: 'openai',
+        model: 'gpt-4o',
+        displayName: 'GPT-4o'
+      }
       console.log('OpenAI chat succesvol')
     } catch (error: any) {
       console.error('OpenAI chat mislukt:', error.message)
@@ -303,7 +387,7 @@ export async function chat(
     }
   }
 
-  if (!fullResponse) {
+  if (!fullResponse || !modelInfo) {
     throw lastError || new Error('Alle AI providers gefaald')
   }
 
@@ -311,14 +395,15 @@ export async function chat(
 
   return {
     response: visibleResponse,
-    metadata
+    metadata,
+    modelInfo
   }
 }
 
 // Start een nieuw gesprek met welkomstbericht
 export async function startConversation(
   concepts: Concept[]
-): Promise<{ response: string; metadata: AssessmentMetadata | null }> {
+): Promise<{ response: string; metadata: AssessmentMetadata | null; modelInfo: ModelInfo }> {
   const initialMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
     {
       role: 'user',

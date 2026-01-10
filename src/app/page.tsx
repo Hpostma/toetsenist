@@ -30,6 +30,12 @@ interface DocumentAnalysis {
 
 type AppState = 'upload' | 'analyzing' | 'concepts' | 'conversation' | 'report'
 
+interface ModelInfo {
+  provider: 'anthropic' | 'gemini' | 'openai'
+  model: string
+  displayName: string
+}
+
 export default function Home() {
   const [appState, setAppState] = useState<AppState>('upload')
   const [documentText, setDocumentText] = useState<string>('')
@@ -37,6 +43,7 @@ export default function Home() {
   const [analysis, setAnalysis] = useState<DocumentAnalysis | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [initialMessage, setInitialMessage] = useState<string>('')
+  const [initialModelInfo, setInitialModelInfo] = useState<ModelInfo | null>(null)
   const [reportData, setReportData] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -90,6 +97,9 @@ export default function Home() {
       if (data.success && data.sessionId) {
         setSessionId(data.sessionId)
         setInitialMessage(data.message)
+        if (data.modelInfo) {
+          setInitialModelInfo(data.modelInfo)
+        }
         setAppState('conversation')
       } else {
         throw new Error(data.error || 'Kon sessie niet starten')
@@ -153,6 +163,7 @@ export default function Home() {
     setDocumentTitle('')
     setAnalysis(null)
     setSessionId(null)
+    setInitialModelInfo(null)
     setReportData(null)
     setError(null)
   }
@@ -321,6 +332,7 @@ export default function Home() {
               sessionId={sessionId}
               concepts={analysis.concepts}
               initialMessage={initialMessage}
+              initialModelInfo={initialModelInfo || undefined}
               onEnd={handleEndConversation}
             />
           )}

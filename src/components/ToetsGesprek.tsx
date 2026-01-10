@@ -16,14 +16,21 @@ interface Concept {
     complexity: number
 }
 
+interface ModelInfo {
+    provider: 'anthropic' | 'gemini' | 'openai'
+    model: string
+    displayName: string
+}
+
 interface ToetsGesprekProps {
     sessionId: string
     concepts: Concept[]
     initialMessage?: string
+    initialModelInfo?: ModelInfo
     onEnd: () => void
 }
 
-export default function ToetsGesprek({ sessionId, concepts, initialMessage, onEnd }: ToetsGesprekProps) {
+export default function ToetsGesprek({ sessionId, concepts, initialMessage, initialModelInfo, onEnd }: ToetsGesprekProps) {
     const [messages, setMessages] = useState<Message[]>(() => {
         if (initialMessage) {
             return [{
@@ -38,9 +45,24 @@ export default function ToetsGesprek({ sessionId, concepts, initialMessage, onEn
     const [input, setInput] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [currentLevel, setCurrentLevel] = useState(2)
+    const [currentModel, setCurrentModel] = useState<ModelInfo | null>(initialModelInfo || null)
     const [showEndConfirm, setShowEndConfirm] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLTextAreaElement>(null)
+
+    // Provider kleuren en iconen
+    const getProviderStyle = (provider: string) => {
+        switch (provider) {
+            case 'anthropic':
+                return { bg: 'bg-orange-100', text: 'text-orange-700', icon: '🧡' }
+            case 'gemini':
+                return { bg: 'bg-blue-100', text: 'text-blue-700', icon: '💎' }
+            case 'openai':
+                return { bg: 'bg-green-100', text: 'text-green-700', icon: '🤖' }
+            default:
+                return { bg: 'bg-gray-100', text: 'text-gray-700', icon: '🔮' }
+        }
+    }
 
     // Scroll naar beneden bij nieuwe berichten
     useEffect(() => {
@@ -84,6 +106,9 @@ export default function ToetsGesprek({ sessionId, concepts, initialMessage, onEn
                 }
                 setMessages(prev => [...prev, assistantMessage])
                 setCurrentLevel(data.currentLevel || currentLevel)
+                if (data.modelInfo) {
+                    setCurrentModel(data.modelInfo)
+                }
             } else {
                 throw new Error(data.error || 'Fout bij versturen bericht')
             }
@@ -137,6 +162,15 @@ export default function ToetsGesprek({ sessionId, concepts, initialMessage, onEn
                     <p className="text-sm text-white/80">{concepts.length} concepten</p>
                 </div>
                 <div className="flex items-center gap-4">
+                    {/* Model indicator */}
+                    {currentModel && (
+                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${getProviderStyle(currentModel.provider).bg}`}>
+                            <span>{getProviderStyle(currentModel.provider).icon}</span>
+                            <span className={`text-xs font-medium ${getProviderStyle(currentModel.provider).text}`}>
+                                {currentModel.displayName}
+                            </span>
+                        </div>
+                    )}
                     <div className="flex items-center gap-2">
                         <span className="text-sm">Niveau:</span>
                         <div className={`w-8 h-8 rounded-full ${getLevelColor(currentLevel)} flex items-center justify-center font-bold`}>
