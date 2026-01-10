@@ -149,6 +149,37 @@ Elke response bevat twee delen:
 \`\`\``
 }
 
+// Retry helper met exponential backoff
+async function withRetry<T>(
+    fn: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelayMs: number = 1000
+): Promise<T> {
+    let lastError: Error | null = null
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            return await fn()
+        } catch (error: any) {
+            lastError = error
+            const isRateLimit = error.message?.includes('429') ||
+                               error.message?.includes('rate') ||
+                               error.message?.includes('quota') ||
+                               error.status === 429
+
+            if (!isRateLimit || attempt === maxRetries - 1) {
+                throw error
+            }
+
+            const delay = baseDelayMs * Math.pow(2, attempt)
+            console.log(`Rate limit hit, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`)
+            await new Promise(resolve => setTimeout(resolve, delay))
+        }
+    }
+
+    throw lastError
+}
+
 // Initialiseer Gemini (Model configuration)
 function getGeminiModel() {
     if (!process.env.GEMINI_API_KEY) {
@@ -156,9 +187,9 @@ function getGeminiModel() {
     }
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
 
-    // Config: Gemini Pro 1.5, Safety Disabled for Educational purposes
+    // Config: Gemini 2.0 Flash - veel hogere rate limits en sneller
     return genAI.getGenerativeModel({
-        model: 'gemini-1.5-pro',
+        model: 'gemini-2.0-flash',
         safetySettings: [
             { category: 'HARM_CATEGORY_HARASSMENT' as any, threshold: 'BLOCK_NONE' as any },
             { category: 'HARM_CATEGORY_HATE_SPEECH' as any, threshold: 'BLOCK_NONE' as any },
@@ -178,13 +209,14 @@ export async function analyzeDocument(documentText: string): Promise<DocumentAna
 
     const model = getGeminiModel()
 
-    console.log('Gemini Flash analyseert document (lengte:', documentText.length, ')')
+    console.log('Gemini 2.0 Flash analyseert document (lengte:', documentText.length, ')')
 
     if (!documentText || documentText.trim().length === 0) {
         throw new Error('Document tekst is leeg, kan geen analyse uitvoeren.')
     }
 
-    try {
+    // Wrap in retry logic voor rate limit handling
+    return withRetry(async () => {
         const result = await model.generateContent([
             DOCUMENT_ANALYSIS_PROMPT,
             `TEKST:\n${documentText}`
@@ -204,13 +236,7 @@ export async function analyzeDocument(documentText: string): Promise<DocumentAna
         }
 
         return JSON.parse(jsonMatch[0]) as DocumentAnalysis
-    } catch (error: any) {
-        console.error('Gemini API error bij analyse:', error.message || error)
-        if (error.message?.includes('model output must contain either output text')) {
-            throw new Error('Gemini weigerde het document te verwerken (Safety Filter). Probeer een andere tekst.')
-        }
-        throw error
-    }
+    }, 3, 2000) // 3 retries, start with 2s delay
 }
 
 // Voer een conversatie beurt uit - STATELESS IMPLEMENTATIE
